@@ -32,6 +32,18 @@ public abstract class BasicForm : HtmlForm {
 	}
 
 	/// <summary>
+	/// Invalidates the cached control collections when a new form definition is loaded.
+	/// </summary>
+	protected override void OnFormReset() {
+		allControls = null;
+		checkBoxControls = null;
+		inputControls = null;
+		radioControls = null;
+		selectControls = null;
+		textAreaControls = null;
+	}
+
+	/// <summary>
 	/// Gets all HTML controls contained within the form.
 	/// </summary>
 	public IEnumerable<HtmlFormControl> AllControls {

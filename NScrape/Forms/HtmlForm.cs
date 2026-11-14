@@ -304,6 +304,12 @@ public abstract class HtmlForm {
 	}
 
 	private void PopulateForm( HtmlFormDefinition formDefinition ) {
+		// Loading a form completely replaces any previously loaded definition so that a
+		// reused form instance does not leak attributes or controls across loads.
+		Attributes.Clear();
+		Controls.Clear();
+
+		OnFormReset();
 
 		foreach ( var attribute in formDefinition.Attributes ) {
 			Attributes.Add( attribute.Key, attribute.Value );
@@ -311,6 +317,44 @@ public abstract class HtmlForm {
 
 		foreach ( var control in formDefinition.Controls ) {
 			Controls.Add( control );
+		}
+
+		GroupRadioControls();
+	}
+
+	/// <summary>
+	/// Called when a load has discarded the previously loaded form definition, before the new one is populated.
+	/// </summary>
+	/// <remarks>
+	/// Derived classes that cache state derived from the form definition (such as control collections)
+	/// should override this method to invalidate that state.
+	/// </remarks>
+	protected virtual void OnFormReset() {
+	}
+
+	private void GroupRadioControls() {
+		// Radio buttons are mutually exclusive within their form and name. Wire each group up so
+		// that checking one radio atomically unchecks the others in the group.
+		foreach ( var radioGroup in Controls.OfType<InputRadioHtmlFormControl>().Where( r => r.Name != null ).GroupBy( r => r.Name, StringComparer.OrdinalIgnoreCase ) ) {
+			var radios = radioGroup.ToList();
+
+			foreach ( var radio in radios ) {
+				radio.SetGroup( radios );
+			}
+
+			// If the HTML checks more than one radio in the group, honor the last one in document
+			// order, matching browser behavior.
+			InputRadioHtmlFormControl lastChecked = null;
+
+			foreach ( var radio in radios ) {
+				if ( radio.Checked ) {
+					if ( lastChecked != null ) {
+						lastChecked.Checked = false;
+					}
+
+					lastChecked = radio;
+				}
+			}
 		}
 	}
 
@@ -396,9 +440,22 @@ public abstract class HtmlForm {
 		}
 		else {
 			var builder = new UriBuilder( ActionUrl ) {
-				Query = requestData,
 				Port = -1
 			};
+
+			// Preserve any query string already present on the form's action URL and merge the
+			// form data into it rather than overwriting it.
+			var actionQuery = builder.Query.TrimStart( '?' );
+
+			if ( actionQuery.Length > 0 && !string.IsNullOrEmpty( requestData ) ) {
+				builder.Query = string.Concat( actionQuery, "&", requestData );
+			}
+			else if ( actionQuery.Length > 0 ) {
+				builder.Query = actionQuery;
+			}
+			else {
+				builder.Query = requestData;
+			}
 
 			request = new GetWebRequest( builder.Uri, autoRedirect );
 		}

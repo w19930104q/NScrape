@@ -14,7 +14,7 @@ public abstract class InputCheckableHtmlFormControl : InputHtmlFormControl {
 	/// <summary>
 	/// Gets or sets whether or not the control is checked.
 	/// </summary>
-	public bool Checked { get; set; }
+	public virtual bool Checked { get; set; }
 
 	/// <summary>
 	/// Gets the value of the control.
